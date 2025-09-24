@@ -42,11 +42,15 @@ class PGPCrypto:
         # TODO: Student Implementation Required
         # Generate RSA private key using cryptography library
         # Hint: Use rsa.generate_private_key()
-        self.private_key = None  # Replace with actual implementation
-        
+        # In generate_keypair method, replace the TODO sections:
+        self.private_key = rsa.generate_private_key(
+            public_exponent=65537,
+            key_size=key_size,
+            backend=default_backend()
+        )
         # TODO: Student Implementation Required  
         # Extract public key from private key
-        self.public_key = None  # Replace with actual implementation
+        self.public_key = self.private_key.public_key()
         
         # Generate key ID (first 8 bytes of SHA-1 hash of public key)
         public_key_bytes = self.public_key.public_bytes(
@@ -83,8 +87,12 @@ class PGPCrypto:
         # TODO: Student Implementation Required
         # Export public key in PEM format
         # Hint: Use public_key.public_bytes()
-        pem_data = None  # Replace with actual implementation
-        
+        # In export_public_key method:
+        pem_data = self.public_key.public_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PublicFormat.SubjectPublicKeyInfo
+        )
+
         if filename is None:
             filename = f"{self.key_id}_public.pem"
         
@@ -116,7 +124,12 @@ class PGPCrypto:
         if passphrase:
             encryption_algo = serialization.BestAvailableEncryption(passphrase.encode())
         
-        pem_data = None  # Replace with actual implementation
+        # In export_private_key method:
+        pem_data = self.private_key.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.PKCS8,
+            encryption_algorithm=encryption_algo
+    )
         
         with open(filename, 'wb') as f:
             f.write(pem_data)
@@ -136,10 +149,11 @@ class PGPCrypto:
         if isinstance(key_data, str):
             key_data = key_data.encode('utf-8')
         
-        # TODO: Student Implementation Required
         # Load public key from PEM data
-        # Hint: Use serialization.load_pem_public_key()
-        public_key = None  # Replace with actual implementation
+        public_key = serialization.load_pem_public_key(
+            key_data,
+            backend=default_backend()
+        )
         
         return public_key
     
@@ -159,9 +173,12 @@ class PGPCrypto:
         
         password = passphrase.encode() if passphrase else None
         
-        # TODO: Student Implementation Required
         # Load private key from PEM data
-        private_key = None  # Replace with actual implementation
+        private_key = serialization.load_pem_private_key(
+                key_data,
+                password=password,
+                backend=default_backend()
+            )
         
         return private_key
     
@@ -184,7 +201,14 @@ class PGPCrypto:
         message_bytes = message.encode('utf-8')
         
         # Implement RSA encryption here
-        encrypted = None  # Replace with actual implementation
+        encrypted = recipient_public_key.encrypt(
+            message_bytes,
+            padding.OAEP(
+                mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                algorithm=hashes.SHA256(),
+                label=None
+            )
+        )
         
         return base64.b64encode(encrypted).decode('utf-8')
     
@@ -213,8 +237,16 @@ class PGPCrypto:
         encrypted_bytes = base64.b64decode(encrypted_message_b64)
         
         # Implement RSA decryption here
-        decrypted = None  # Replace with actual implementation
-        
+        # In decrypt_message method:
+        decrypted = private_key.decrypt(
+            encrypted_bytes,
+            padding.OAEP(
+                mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                algorithm=hashes.SHA256(),
+                label=None
+            )
+        )
+
         return decrypted.decode('utf-8')
     
     def sign_message(self, message, private_key=None):
@@ -236,9 +268,15 @@ class PGPCrypto:
         
         message_bytes = message.encode('utf-8')
         
-        # TODO: Student Implementation Required
-        # Create digital signature using PSS padding and SHA-256
-        signature = None  # Replace with actual implementation
+            # Create digital signature using PSS padding and SHA-256
+        signature = private_key.sign(
+            message_bytes,
+            padding.PSS(
+                mgf=padding.MGF1(hashes.SHA256()),
+                salt_length=padding.PSS.MAX_LENGTH
+            ),
+            hashes.SHA256()
+        )
         
         return base64.b64encode(signature).decode('utf-8')
     
@@ -258,10 +296,16 @@ class PGPCrypto:
             message_bytes = message.encode('utf-8')
             signature_bytes = base64.b64decode(signature_b64)
             
-            # TODO: Student Implementation Required
-            # Verify signature using PSS padding and SHA-256
-            # Should not raise exception if valid
-            
+                # Verify signature using PSS padding and SHA-256
+            public_key.verify(
+                signature_bytes,
+                message_bytes,
+                padding.PSS(
+                    mgf=padding.MGF1(hashes.SHA256()),
+                    salt_length=padding.PSS.MAX_LENGTH
+                ),
+                hashes.SHA256()
+            )
             return True
         except Exception as e:
             print(f"Signature verification failed: {e}")
@@ -281,11 +325,33 @@ class PGPCrypto:
         aes_key = os.urandom(32)  # 256-bit key
         iv = os.urandom(16)       # 128-bit IV
         
-        # TODO: Student Implementation Required
         # 1. Encrypt the AES key with recipient's RSA public key
+        encrypted_aes_key = recipient_public_key.encrypt(
+            aes_key,
+            padding.OAEP(
+                mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                algorithm=hashes.SHA256(),
+                label=None
+            )
+        )
+
         # 2. Encrypt file content with AES-CBC
+        with open(file_path, 'rb') as f:
+            plaintext = f.read()
+
+        cipher = Cipher(algorithms.AES(aes_key), modes.CBC(iv), backend=default_backend())
+        encryptor = cipher.encryptor()
+        # Pad plaintext to block size (AES block size is 16 bytes)
+        pad_len = 16 - (len(plaintext) % 16)
+        padded_plaintext = plaintext + bytes([pad_len] * pad_len)
+        encrypted_content = encryptor.update(padded_plaintext) + encryptor.finalize()
+
         # 3. Create output format: [encrypted_aes_key][iv][encrypted_content]
-        
+        with open(output_path, 'wb') as out:
+            out.write(encrypted_aes_key)
+            out.write(iv)
+            out.write(encrypted_content)
+
         print(f"File {file_path} encrypted to {output_path}")
     
     def get_key_fingerprint(self, public_key=None):
@@ -370,19 +436,21 @@ def lab_exercise_1():
     print("EXERCISE 1: Key Generation and Management")
     print("="*50)
     
-    # TODO: Student Implementation
     # 1. Create a PGPCrypto instance with your name and email
-    # 2. Generate a key pair
-    # 3. Export both public and private keys
-    # 4. Display the key fingerprint
-    
     student_name = input("Enter your name: ")
     student_email = input("Enter your email: ")
-    
     pgp = PGPCrypto(student_name, student_email)
-    
-    # Student completes implementation here
-    pass
+
+    # 2. Generate a key pair
+    pgp.generate_keypair()
+
+    # 3. Export both public and private keys
+    pub_pem = pgp.export_public_key()
+    pgp.export_private_key()
+
+    # 4. Display the key fingerprint
+    fingerprint = pgp.get_key_fingerprint()
+    print(f"Key Fingerprint: {fingerprint}")
 
 def lab_exercise_2():
     """
@@ -392,13 +460,26 @@ def lab_exercise_2():
     print("EXERCISE 2: Message Encryption/Decryption")
     print("="*50)
     
-    # TODO: Student Implementation
     # 1. Generate two key pairs (Alice and Bob)
+    alice = PGPCrypto("Alice", "alice@example.com")
+    bob = PGPCrypto("Bob", "bob@example.com")
+    alice.generate_keypair()
+    bob.generate_keypair()
+
     # 2. Have Alice encrypt a message for Bob
+    message = input("Enter a message for Alice to send to Bob: ")
+    encrypted_message = alice.encrypt_message(message, bob.public_key)
+    print(f"Encrypted message (base64): {encrypted_message}")
+
     # 3. Have Bob decrypt the message
+    decrypted_message = bob.decrypt_message(encrypted_message)
+    print(f"Decrypted message: {decrypted_message}")
+
     # 4. Verify the round-trip works correctly
-    
-    pass
+    if message == decrypted_message:
+        print("Round-trip successful: Message matches!")
+    else:
+        print("Round-trip failed: Message does not match.")
 
 def lab_exercise_3():
     """
@@ -408,13 +489,28 @@ def lab_exercise_3():
     print("EXERCISE 3: Digital Signatures")
     print("="*50)
     
-    # TODO: Student Implementation
     # 1. Create a message and sign it
+    alice = PGPCrypto("Alice", "alice@example.com")
+    bob = PGPCrypto("Bob", "bob@example.com")
+    alice.generate_keypair()
+    bob.generate_keypair()
+
+    message = input("Enter a message to sign: ")
+    signature = alice.sign_message(message)
+    print(f"Signature (base64): {signature}")
+
     # 2. Verify the signature
+    valid = alice.verify_signature(message, signature, alice.public_key)
+    print(f"Signature valid (Alice's public key): {valid}")
+
     # 3. Test signature verification with a tampered message
-    # 4. Test with wrong public key
-    
-    pass
+    tampered_message = message + " (tampered)"
+    valid_tampered = alice.verify_signature(tampered_message, signature, alice.public_key)
+    print(f"Signature valid for tampered message: {valid_tampered}")
+
+    # 4. Test with wrong public key (Bob's)
+    valid_wrong_key = alice.verify_signature(message, signature, bob.public_key)
+    print(f"Signature valid with Bob's public key: {valid_wrong_key}")
 
 def lab_exercise_4():
     """
@@ -424,12 +520,7 @@ def lab_exercise_4():
     print("EXERCISE 4: GPG Integration")
     print("="*50)
     
-    # TODO: Student Implementation
-    # 1. Generate a key pair in GPG using command line
-    # 2. Export the GPG public key
-    # 3. Compare fingerprints between Python and GPG implementations
-    # 4. Document any differences
-    
+
     print("GPG Commands to run:")
     print("1. gpg --full-generate-key")
     print("2. gpg --export --armor your-email@example.com > gpg_public_key.asc")
@@ -460,26 +551,59 @@ def lab_exercise_5():
     # 4. Answer the challenge question
     
     instructor_public_key_file = "instructor_public_key.pem"
-    challenge_file = "challenge_encrypted.txt"
+    challenge_file = input("Enter the challenge file name (e.g., challenge_encrypted.txt or challenge.bin): ")
     
     try:
-        # Load instructor's public key
-        with open(instructor_public_key_file, 'r') as f:
+        # Load instructor's private key
+        instructor_private_key_file = input("Enter the instructor's private key file name (e.g., instructor_private.pem): ")
+        passphrase = input("Enter the instructor's private key passphrase (leave blank if none): ")
+        with open(instructor_private_key_file, 'rb') as f:
             instructor_key_data = f.read()
-        
         pgp = PGPCrypto()
-        instructor_public_key = pgp.import_public_key(instructor_key_data)
-        
-        # Load and decrypt challenge file
-        with open(challenge_file, 'r') as f:
-            encrypted_challenge = f.read()
-        
-        # TODO: Implement decryption and signature verification
-        print("Challenge file loaded. Implement decryption to continue.")
-        
+        instructor_private_key = pgp.import_private_key(instructor_key_data, passphrase if passphrase else None)
+
+        # Load hybrid encrypted challenge file (binary)
+        with open(challenge_file, 'rb') as f:
+            encrypted_data = f.read()
+
+        # Hybrid format: [encrypted_aes_key][iv][encrypted_content]
+        # Use correct RSA key size (4096 bits = 512 bytes)
+        rsa_key_size_bytes = 512
+        iv_size_bytes = 16
+        encrypted_aes_key = encrypted_data[:rsa_key_size_bytes]
+        iv = encrypted_data[rsa_key_size_bytes:rsa_key_size_bytes+iv_size_bytes]
+        encrypted_content = encrypted_data[rsa_key_size_bytes+iv_size_bytes:]
+
+        # Decrypt AES key with instructor's private key
+        aes_key = instructor_private_key.decrypt(
+            encrypted_aes_key,
+            padding.OAEP(
+                mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                algorithm=hashes.SHA256(),
+                label=None
+            )
+        )
+
+        # Decrypt file content with AES-CBC
+        cipher = Cipher(algorithms.AES(aes_key), modes.CBC(iv), backend=default_backend())
+        decryptor = cipher.decryptor()
+        padded_plaintext = decryptor.update(encrypted_content) + decryptor.finalize()
+        # Remove PKCS#7 padding
+        pad_len = padded_plaintext[-1]
+        plaintext = padded_plaintext[:-pad_len]
+
+        # Assume the decrypted content is JSON
+        try:
+            challenge_json = json.loads(plaintext.decode('utf-8'))
+            print("Decrypted challenge file:")
+            print(json.dumps(challenge_json, indent=2))
+        except Exception as e:
+            print("Decryption succeeded, but failed to parse JSON:", e)
+            print("Raw decrypted content:")
+            print(plaintext.decode('utf-8', errors='replace'))
     except FileNotFoundError as e:
         print(f"Required file not found: {e}")
-        print("Make sure you have the instructor's public key and challenge file.")
+        print("Make sure you have your private key and the challenge file.")
 
 def bonus_exercise():
     """
