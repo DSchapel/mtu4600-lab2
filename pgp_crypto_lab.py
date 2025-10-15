@@ -42,26 +42,26 @@ class PGPCrypto:
         # DONE Student Implementation Required
         # Generate RSA private key using cryptography library
         # Hint: Use rsa.generate_private_key()
-<<<<<<< Updated upstream
+
         # In generate_keypair method, replace the TODO sections:
-=======
->>>>>>> Stashed changes
+
+
         self.private_key = rsa.generate_private_key(
             public_exponent=65537,
             key_size=key_size,
             backend=default_backend()
-<<<<<<< Updated upstream
+
         )
         # TODO: Student Implementation Required  
         # Extract public key from private key
         self.public_key = self.private_key.public_key()
-=======
-        )  # Replace with actual implementation
+
+          # Replace with actual implementation
         
         # TODO: Student Implementation Required  
         # Extract public key from private key
         self.public_key = self.private_key.public_key()  # Replace with actual implementation
->>>>>>> Stashed changes
+
         
         # Generate key ID (first 8 bytes of SHA-1 hash of public key)
         public_key_bytes = self.public_key.public_bytes(
@@ -98,20 +98,19 @@ class PGPCrypto:
         # DONE: Student Implementation Required
         # Export public key in PEM format
         # Hint: Use public_key.public_bytes()
-<<<<<<< Updated upstream
+
         # In export_public_key method:
         pem_data = self.public_key.public_bytes(
             encoding=serialization.Encoding.PEM,
             format=serialization.PublicFormat.SubjectPublicKeyInfo
         )
 
-=======
+
         pem_data = self.public_key.public_bytes(
             encoding=serialization.Encoding.PEM,
             format=serialization.PublicFormat.SubjectPublicKeyInfo
         )  # Replace with actual implementation
         
->>>>>>> Stashed changes
         if filename is None:
             filename = f"{self.key_id}_public.pem"
         
@@ -143,19 +142,19 @@ class PGPCrypto:
         if passphrase:
             encryption_algo = serialization.BestAvailableEncryption(passphrase.encode())
         
-<<<<<<< Updated upstream
+
         # In export_private_key method:
-=======
->>>>>>> Stashed changes
+
+
         pem_data = self.private_key.private_bytes(
             encoding=serialization.Encoding.PEM,
             format=serialization.PrivateFormat.PKCS8,
             encryption_algorithm=encryption_algo
-<<<<<<< Updated upstream
+
     )
-=======
-        )  # Replace with actual implementation
->>>>>>> Stashed changes
+
+          # Replace with actual implementation
+
         
         with open(filename, 'wb') as f:
             f.write(pem_data)
@@ -234,14 +233,9 @@ class PGPCrypto:
                 algorithm=hashes.SHA256(),
                 label=None
             )
-<<<<<<< Updated upstream
-        )
-=======
-        )  
->>>>>>> Stashed changes
-        
+        )     
         return base64.b64encode(encrypted).decode('utf-8')
-    
+        
     def decrypt_message(self, encrypted_message_b64, private_key=None):
         """
         Decrypt a message using private key
@@ -267,10 +261,10 @@ class PGPCrypto:
         encrypted_bytes = base64.b64decode(encrypted_message_b64)
         
         # Implement RSA decryption here
-<<<<<<< Updated upstream
+
         # In decrypt_message method:
-=======
->>>>>>> Stashed changes
+
+
         decrypted = private_key.decrypt(
             encrypted_bytes,
             padding.OAEP(
@@ -279,12 +273,12 @@ class PGPCrypto:
                 label=None
             )
         )
-<<<<<<< Updated upstream
 
-=======
+
+
   # Replace with actual implementation
         
->>>>>>> Stashed changes
+
         return decrypted.decode('utf-8')
     
     def sign_message(self, message, private_key=None):
